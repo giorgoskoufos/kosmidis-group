@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer Ring for depth -->
+    <path
+        android:fillColor="#1A5E5CE6"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+
+    <!-- Minimalist Gemini Spark/Star -->
+    <group
+        android:translateX="54"
+        android:translateY="54">
+        <path
+            android:fillColor="@color/indigo_accent"
+            android:pathData="M0,-35 C2,-10 10,-2 35,0 C10,2 2,10 0,35 C-2,10 -10,2 -35,0 C-10,-2 -2,-10 0,-35 Z" />
+    </group>
+</vector>

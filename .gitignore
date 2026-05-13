@@ -1,0 +1,42 @@
+# --- Global / OS & Editors ---
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml
+
+# --- Backend (Node.js) ---
+backend/node_modules/
+backend/.env
+backend/scratch/
+
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+
+# --- Frontend (Android) ---
+frontend/.gradle/
+frontend/build/
+**/build/
+frontend/local.properties
+frontend/gradle.properties
+frontend/captures/
+frontend/.externalNativeBuild/
+frontend/.cxx/
+frontend/*.apk
+frontend/*.ap_
+frontend/*.dex
+frontend/*.class
+frontend/*.jar
+**/generated/
+**/intermediates/
+
+# Generic node_modules for any future sub-packages
+node_modules/
+
+report/
+add_features.md
+docs/
