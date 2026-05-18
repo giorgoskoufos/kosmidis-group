@@ -3,9 +3,8 @@ const oauth2Client = require('../config/google');
 
 // 1. Generate Google Auth URL
 exports.getAuthUrl = (req, res) => {
-    const { userId, email, read, write } = req.query;
-    
-    if (!userId) return res.status(400).send('Missing userId parameter.');
+    const { email, read, write } = req.query;
+    const userId = req.user.userId; // Taken from JWT, not from query param (security)
 
     let scopes = [
         'https://www.googleapis.com/auth/userinfo.email',
@@ -43,7 +42,10 @@ exports.getAuthUrl = (req, res) => {
         })
     });
 
-    res.redirect(authorizationUrl);
+    // Return URL as JSON so the Android app can call this with JWT (API call),
+    // then open the URL in a browser/CustomTabsIntent separately.
+    // Do NOT redirect — browsers can't send JWT headers.
+    res.json({ url: authorizationUrl });
 };
 
 // 2. Handle Google OAuth Callback

@@ -172,13 +172,13 @@ public class IntegrationsGoogle extends BottomSheetDialogFragment {
         });
     }
     private void startGoogleSync() {
-        // 1. Get the current user ID and Email from SharedPreferences
+        // 1. Get the current user session from SharedPreferences
         SharedPreferences prefs = requireContext().getSharedPreferences("AppPrefs", Context.MODE_PRIVATE);
-        int userId = prefs.getInt("userId", -1);
-        String userEmail = prefs.getString("userEmail", ""); // Fetch email here
+        String token = prefs.getString("userToken", "");
+        String userEmail = prefs.getString("userEmail", "");
 
-        // Safety check: If we don't have userId or email, do not proceed
-        if (userId == -1 || userEmail.isEmpty()) {
+        // Safety check
+        if (token.isEmpty()) {
             Toast.makeText(requireContext(), "User session error. Please re-login.", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -187,19 +187,64 @@ public class IntegrationsGoogle extends BottomSheetDialogFragment {
         boolean canRead = switchRead.isChecked();
         boolean canWrite = switchWrite.isChecked();
 
-        // 3. Construct the authentication URL for your Node.js server
-        // Add the &email=... parameter
-        // Use Uri.encode to correctly handle special characters like @
-        String baseUrl = NetworkConfig.BASE_URL + "/api/auth/google";
-        String authUrl = baseUrl + "?userId=" + userId
-                + "&email=" + Uri.encode(userEmail)
+        // 3. Step 1: Call the backend API with JWT to get the OAuth URL
+        //    The backend now returns { url: "https://accounts.google.com/..." }
+        String apiUrl = NetworkConfig.BASE_URL + "/api/auth/google"
+                + "?email=" + Uri.encode(userEmail)
                 + "&read=" + canRead
                 + "&write=" + canWrite;
 
-        // 4. Open the System Browser for Google OAuth
-        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(authUrl));
-        startActivity(intent);
+        Request request = new Request.Builder()
+                .url(apiUrl)
+                .addHeader("Authorization", "Bearer " + token)
+                .get()
+                .build();
 
-        dismiss(); // Close the bottom sheet after starting the flow
+        btnSync.setEnabled(false); // Prevent double-clicks while loading
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                if (isAdded()) {
+                    requireActivity().runOnUiThread(() -> {
+                        btnSync.setEnabled(true);
+                        Toast.makeText(requireContext(), "Network Error: Could not start Google sync.", Toast.LENGTH_SHORT).show();
+                    });
+                }
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                if (!isAdded()) return;
+
+                if (!response.isSuccessful()) {
+                    requireActivity().runOnUiThread(() -> {
+                        btnSync.setEnabled(true);
+                        Toast.makeText(requireContext(), "Auth error. Please re-login.", Toast.LENGTH_SHORT).show();
+                    });
+                    return;
+                }
+
+                try {
+                    // 4. Step 2: Parse the URL from the JSON response
+                    String responseBody = response.body().string();
+                    // Simple JSON parse — extract the "url" field
+                    String googleUrl = new org.json.JSONObject(responseBody).getString("url");
+
+                    requireActivity().runOnUiThread(() -> {
+                        btnSync.setEnabled(true);
+                        // 5. Open the Google OAuth URL in the system browser
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(googleUrl));
+                        startActivity(intent);
+                        dismiss(); // Close the bottom sheet
+                    });
+                } catch (Exception e) {
+                    requireActivity().runOnUiThread(() -> {
+                        btnSync.setEnabled(true);
+                        Toast.makeText(requireContext(), "Error parsing server response.", Toast.LENGTH_SHORT).show();
+                    });
+                }
+            }
+        });
     }
 }

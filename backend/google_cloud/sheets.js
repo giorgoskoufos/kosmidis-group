@@ -51,10 +51,10 @@ async function getOrSyncContactsSheet(db, userId) {
     try { // Update the database
         const updateRes = await db.query(
             `INSERT INTO user_profiles (user_id, contacts_spreadsheet_id) 
-             VALUES ($2, $1) 
+             VALUES ($1, $2) 
              ON CONFLICT (user_id) 
              DO UPDATE SET contacts_spreadsheet_id = EXCLUDED.contacts_spreadsheet_id`,
-            [sheetId, userId]
+            [userId, sheetId]
         );
         console.log(`[Database] Successfully saved Sheet ID to user ${userId}.`);
     } catch (dbErr) {

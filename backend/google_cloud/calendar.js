@@ -42,6 +42,7 @@ async function getCalendarEvents(db, userId, timeMin, timeMax, query, maxResults
 
 async function createCalendarEvent(db, userId, summary, start, end, location = "", description = "") {
     const auth = await getGoogleOAuthClient(db, userId);
+    if (!auth) return "Error: User has not connected their Google account yet.";
     const calendar = google.calendar({ version: 'v3', auth });
 
     try {
@@ -67,6 +68,7 @@ async function createCalendarEvent(db, userId, summary, start, end, location = "
 
 async function deleteCalendarEvent(db, userId, eventId) {
     const auth = await getGoogleOAuthClient(db, userId);
+    if (!auth) return "Error: User has not connected their Google account yet.";
     const calendar = google.calendar({ version: 'v3', auth });
 
     try {
@@ -83,6 +85,7 @@ async function deleteCalendarEvent(db, userId, eventId) {
 
 async function updateCalendarEvent(db, userId, eventId, updates) {
     const auth = await getGoogleOAuthClient(db, userId);
+    if (!auth) return "Error: User has not connected their Google account yet.";
     const calendar = google.calendar({ version: 'v3', auth });
 
     try {

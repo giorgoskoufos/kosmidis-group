@@ -1,12 +1,11 @@
 const db = require('../db/database');
 const openai = require('../config/ai');
-const { PDFParse } = require('pdf-parse');
+const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const { getCalendarEvents, createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } = require('../google_cloud/calendar');
 const { fetchMails, sendMail } = require('../google_cloud/gmail');
 const { readContacts, addContact, editContact, removeContact } = require('../google_cloud/sheets');
 const { searchDriveFiles, readDriveFileContent } = require('../google_cloud/drive');
-const fs = require('fs');
 
 // 1. Primary Chat Logic (The Brain)
 exports.sendMessage = async (req, res) => {
@@ -46,7 +45,13 @@ exports.sendMessage = async (req, res) => {
         }
 
         const userQuery = await db.query('SELECT user_id FROM conversations WHERE id = $1', [conversationId]);
+        if (!userQuery.rows.length) {
+            return res.status(404).json({ error: 'Conversation not found.' });
+        }
         const userId = userQuery.rows[0].user_id;
+        if (userId !== req.user.userId) {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
 
         const integrationQuery = await db.query(
             'SELECT can_read, can_write FROM user_integrations WHERE user_id = $1 AND provider = $2',
@@ -246,6 +251,38 @@ exports.sendMessage = async (req, res) => {
                             required: ["name", "email"]
                         }
                     }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "editContact",
+                        description: "Edits an existing contact in the user's Google Sheets contact list by searching for their current name.",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                searchName: { type: "string", description: "The current full name of the contact to find." },
+                                newName: { type: "string", description: "The new name (optional)." },
+                                newEmail: { type: "string", description: "The new email (optional)." },
+                                newPhone: { type: "string", description: "The new phone number (optional)." },
+                                newCategory: { type: "string", description: "The new category (optional)." }
+                            },
+                            required: ["searchName"]
+                        }
+                    }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "removeContact",
+                        description: "Permanently removes a contact from the user's Google Sheets contact list by name.",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                searchName: { type: "string", description: "The full name of the contact to remove." }
+                            },
+                            required: ["searchName"]
+                        }
+                    }
                 }
             );
         }
@@ -311,6 +348,14 @@ exports.sendMessage = async (req, res) => {
 
                         case "addContact":
                             toolResult = await addContact(db, userId, args.name, args.email);
+                            break;
+
+                        case "editContact":
+                            toolResult = await editContact(db, userId, args.searchName, args.newName, args.newEmail, args.newPhone, args.newCategory);
+                            break;
+
+                        case "removeContact":
+                            toolResult = await removeContact(db, userId, args.searchName);
                             break;
 
                         default:
@@ -444,17 +489,12 @@ exports.sendFileMessage = async (req, res) => {
                 file.mimetype === "application/pdf" ||
                 fileName.endsWith(".pdf")
             ) {
-                const parser = new PDFParse({
-                    data: file.buffer
-                });
                 try {
-                    const pdfData = await parser.getText();
+                    const pdfData = await pdfParse(file.buffer);
                     content = pdfData.text || "";
                 } catch (err) {
                     console.error("PDF Parse Error:", err);
                     content = "[Failed to read PDF file]";
-                } finally {
-                    await parser.destroy();
                 }
             }
             else if (
@@ -557,6 +597,18 @@ exports.getMessages = async (req, res) => {
     const { conversationId } = req.params;
 
     try {
+        // Ownership check — ensure the conversation belongs to the requesting user
+        const ownerCheck = await db.query(
+            'SELECT user_id FROM conversations WHERE id = $1',
+            [conversationId]
+        );
+        if (!ownerCheck.rows.length) {
+            return res.status(404).json({ error: 'Conversation not found.' });
+        }
+        if (ownerCheck.rows[0].user_id !== req.user.userId) {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
+
         const result = await db.query(
             'SELECT sender, message_text, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
             [conversationId]

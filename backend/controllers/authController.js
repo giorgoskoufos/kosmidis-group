@@ -9,6 +9,10 @@ exports.register = async (req, res) => {
         return res.status(400).json({ error: 'Please provide email and password.' });
     }
 
+    if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+    }
+
     try {
         // 1. Check if user already exists
         const userExists = await db.query('SELECT * FROM users WHERE email = $1', [email]);

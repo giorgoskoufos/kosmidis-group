@@ -8,6 +8,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
+
+import java.util.concurrent.Executor;
 
 import com.kosmidis.jarvis.R;
 import com.kosmidis.jarvis.data.ApiClient;
@@ -30,7 +35,7 @@ public class LoginActivity extends AppCompatActivity {
         sessionManager = new SessionManager(this);
 
         if (sessionManager.isLoggedIn()) {
-            openMainScreen();
+            showBiometricPrompt();
             return;
         }
 
@@ -40,6 +45,52 @@ public class LoginActivity extends AppCompatActivity {
 
         bindViews();
         setupListeners();
+    }
+
+    private void showBiometricPrompt() {
+        BiometricManager biometricManager = BiometricManager.from(this);
+        int canAuthenticate = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+        
+        if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
+            openMainScreen();
+            return;
+        }
+
+        Executor executor = ContextCompat.getMainExecutor(this);
+        BiometricPrompt biometricPrompt = new BiometricPrompt(LoginActivity.this,
+                executor, new BiometricPrompt.AuthenticationCallback() {
+            @Override
+            public void onAuthenticationError(int errorCode, CharSequence errString) {
+                super.onAuthenticationError(errorCode, errString);
+                Toast.makeText(getApplicationContext(), "Authentication Error: " + errString, Toast.LENGTH_SHORT).show();
+                sessionManager.clearSession();
+                
+                setContentView(R.layout.activity_login);
+                authApiManager = new AuthApiManager(ApiClient.getClient());
+                bindViews();
+                setupListeners();
+            }
+
+            @Override
+            public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                super.onAuthenticationSucceeded(result);
+                openMainScreen();
+            }
+
+            @Override
+            public void onAuthenticationFailed() {
+                super.onAuthenticationFailed();
+                Toast.makeText(getApplicationContext(), "Authentication Failed", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("J.A.R.V.I.S. Secure Access")
+                .setSubtitle("Authenticate using your fingerprint")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                .build();
+
+        biometricPrompt.authenticate(promptInfo);
     }
 
     private void bindViews() {
