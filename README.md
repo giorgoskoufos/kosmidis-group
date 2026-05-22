@@ -4,6 +4,12 @@
 
 ---
 
+## 📌 Reference Repository
+
+> **Source**: [https://github.com/giorgoskoufos/kosmidis-group.git](https://github.com/giorgoskoufos/kosmidis-group.git)
+
+---
+
 ## 🚀 Key Features
 
 ### 🧠 Contextual Intelligence
